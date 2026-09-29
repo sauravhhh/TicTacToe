@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#10102a">
+    <meta name="description" content="Tic-Tac-Toe vs the computer — easy, medium, or unbeatable hard. Installable PWA, works offline.">
+    <title>Tic-Tac-Toe</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #10102a;
+            --panel: #1a1b3d;
+            --ink: #f4f3ff;
+            --muted: #8f8fc0;
+            --cyan: #22d3ee;
+            --amber: #fbbf24;
+            --radius: 16px;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 12px calc(18px + env(safe-area-inset-bottom));
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .wrap { width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
+
+        .top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; align-self: flex-start; width: 100%; }
+        .top img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 4px 14px rgba(34,211,238,.3); }
+        .top h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.4px; flex: 1; }
+        .icon-btn {
+            border: none; background: var(--panel); color: var(--ink);
+            width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .icon-btn:active { transform: scale(.94); }
+        .icon-btn svg { width: 22px; height: 22px; }
+
+        .controls { display: flex; gap: 10px; width: 100%; margin-bottom: 12px; }
+        .seg { flex: 1; display: flex; background: var(--panel); border-radius: 12px; padding: 4px; gap: 4px; }
+        .seg button {
+            flex: 1; border: none; background: transparent; color: var(--muted); cursor: pointer;
+            font-size: 12px; font-weight: 800; padding: 9px 2px; border-radius: 9px;
+            text-transform: uppercase; letter-spacing: .5px;
+        }
+        .seg button.on { background: #2a2b55; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+
+        .scores { display: flex; gap: 10px; width: 100%; margin-bottom: 14px; }
+        .scores .card { flex: 1; background: var(--panel); border-radius: 12px; padding: 8px 6px; text-align: center; }
+        .scores .card .v { font-size: 24px; font-weight: 800; }
+        .scores .card.you .v { color: var(--cyan); }
+        .scores .card.draw .v { color: var(--muted); }
+        .scores .card.cpu .v { color: var(--amber); }
+        .scores .card .l { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+
+        .status {
+            font-size: 15px; font-weight: 700; margin-bottom: 12px; min-height: 22px; text-align: center;
+            color: var(--ink);
+        }
+        .status.think { color: var(--muted); }
+
+        .board {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%;
+            background: var(--panel); border-radius: var(--radius); padding: 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,.5);
+        }
+        .cell {
+            aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer;
+            background: #12132e; color: var(--ink);
+            font-size: 56px; font-weight: 800; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, transform .06s;
+        }
+        .cell:active:not(.filled) { transform: scale(.95); background: #1b1c40; }
+        .cell.filled { cursor: default; }
+        .cell .mark { animation: pop .22s ease-out; display: block; }
+        @keyframes pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+        .cell.x { color: var(--cyan); text-shadow: 0 0 18px rgba(34,211,238,.7); }
+        .cell.o { color: var(--amber); text-shadow: 0 0 18px rgba(251,191,36,.7); }
+        .cell.win { background: rgba(34,211,238,.14); animation: winPulse .5s ease-in-out infinite alternate; }
+        .cell.win.o { background: rgba(251,191,36,.14); }
+        @keyframes winPulse { from { box-shadow: 0 0 0 rgba(255,255,255,0); } to { box-shadow: 0 0 22px rgba(255,255,255,.25); } }
+
+        .actions { width: 100%; margin-top: 14px; }
+        .actions button {
+            width: 100%; border: none; border-radius: 14px; cursor: pointer;
+            background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+            color: #062a33; font-size: 16px; font-weight: 800; padding: 15px; min-height: 54px;
+            box-shadow: 0 6px 18px rgba(34,211,238,.35);
+        }
+        .actions button:active { transform: scale(.98); }
+
+        .tip { text-align: center; margin-top: 12px; font-size: 12px; color: var(--muted); opacity: .8; line-height: 1.6; }
+        footer { text-align: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="top">
+            <img src="icon-192.png" alt="Tic-Tac-Toe icon">
+            <h1>Tic-Tac-Toe</h1>
+            <button class="icon-btn" id="soundBtn" aria-label="Toggle sound">
+                <svg id="soundOnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9.4 9.4 0 0 1 0 13"/></svg>
+                <svg id="soundOffIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            </button>
+        </div>
+
+        <div class="controls">
+            <div class="seg" id="diffSeg">
+                <button data-d="easy">Easy</button>
+                <button data-d="medium">Med</button>
+                <button data-d="hard" class="on">Hard</button>
+            </div>
+            <div class="seg" id="sideSeg">
+                <button data-s="X" class="on">Play X</button>
+                <button data-s="O">Play O</button>
+            </div>
+        </div>
+
+        <div class="scores">
+            <div class="card you"><div class="v" id="youV">0</div><div class="l">You</div></div>
+            <div class="card draw"><div class="v" id="drawV">0</div><div class="l">Draws</div></div>
+            <div class="card cpu"><div class="v" id="cpuV">0</div><div class="l">CPU</div></div>
+        </div>
+
+        <div class="status" id="status">Your turn</div>
+        <div class="board" id="board"></div>
+
+        <div class="actions">
+            <button id="newBtn">New game</button>
+        </div>
+
+        <div class="tip">Hard mode is unbeatable — a draw is a victory.<br>Playing O lets the CPU move first.</div>
+        <footer>Made with ❤️ by Sauravhhh</footer>
+    </div>
+
+    <script src="game-logic.js"></script>
+    <script>
+        (function () {
+            'use strict';
+            var TT = window.TicTacLogic;
+
+            var boardEl = document.getElementById('board');
+            var statusEl = document.getElementById('status');
+            var youV = document.getElementById('youV');
+            var drawV = document.getElementById('drawV');
+            var cpuV = document.getElementById('cpuV');
+
+            var state = null;
+            var difficulty = localStorage.getItem('ttt_diff') || 'hard';
+            var side = localStorage.getItem('ttt_side') || 'X';
+            var tally = JSON.parse(localStorage.getItem('ttt_tally') || '{"you":0,"draw":0,"cpu":0}');
+            var soundOn = localStorage.getItem('ttt_sound') !== 'off';
+            var cpuTimer = null;
+
+            // ---------- sound (Web Audio, zero files) ----------
+            var actx = null;
+            function ac() {
+                if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+                if (actx && actx.state === 'suspended') actx.resume();
+                return actx;
+            }
+            function tone(f0, f1, dur, type, vol, delay) {
+                if (!soundOn) return;
+                var c = ac(); if (!c) return;
+                var t0 = c.currentTime + (delay || 0);
+                var o = c.createOscillator(), g = c.createGain();
+                o.type = type; o.frequency.setValueAtTime(f0, t0);
+                o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t0 + dur);
+                g.gain.setValueAtTime(vol, t0);
+                g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+                o.connect(g); g.connect(c.destination);
+                o.start(t0); o.stop(t0 + dur + 0.02);
+            }
+            var sfx = {
+                you: function () { tone(520, 660, 0.1, 'triangle', 0.1); },
+                cpu: function () { tone(440, 360, 0.1, 'triangle', 0.08); },
+                win: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, f, 0.18, 'triangle', 0.1, i * 0.11); }); },
+                lose: function () { tone(220, 110, 0.4, 'sawtooth', 0.09); },
+                draw: function () { tone(392, 392, 0.15, 'sine', 0.09); tone(392, 392, 0.15, 'sine', 0.09, 0.2); }
+            };
+
+            function buzz(p) { if (navigator.vibrate) { try { navigator.vibrate(p); } catch (e) {} } }
+
+            // ---------- board ----------
+            var cells = [];
+            for (var i = 0; i < 9; i++) {
+                (function (idx) {
+                    var b = document.createElement('button');
+                    b.className = 'cell';
+                    b.setAttribute('aria-label', 'Cell ' + (idx + 1));
+                    b.addEventListener('click', function () { humanMove(idx); });
+                    boardEl.appendChild(b);
+                    cells.push(b);
+                })(i);
+            }
+
+            function render() {
+                for (var i = 0; i < 9; i++) {
+                    var v = state.board[i];
+                    var c = cells[i];
+                    c.classList.remove('x', 'o', 'filled', 'win');
+                    if (v) {
+                        c.classList.add('filled', v === 'X' ? 'x' : 'o');
+                        if (!c.querySelector('.mark') || c.dataset.v !== v) {
+                            c.dataset.v = v;
+                            c.innerHTML = '<span class="mark">' + v + '</span>';
+                        }
+                    } else {
+                        c.dataset.v = '';
+                        c.innerHTML = '';
+                    }
+                }
+                if (state.over && state.winLine) {
+                    state.winLine.forEach(function (idx) {
+                        cells[idx].classList.add('win', state.winner === 'X' ? 'x' : 'o');
+                    });
+                }
+            }
+
+            function setStatus(text, thinking) {
+                statusEl.textContent = text;
+                statusEl.classList.toggle('think', !!thinking);
+            }
+
+            function finishGame() {
+                if (state.winner === 'draw') {
+                    setStatus("It's a draw!");
+                    tally.draw++;
+                    sfx.draw();
+                    buzz(40);
+                } else if (state.winner === state.player) {
+                    setStatus('You win! 🎉');
+                    tally.you++;
+                    sfx.win();
+                    buzz([50, 40, 50, 40, 100]);
+                } else {
+                    setStatus('CPU wins 😅');
+                    tally.cpu++;
+                    sfx.lose();
+                    buzz([90, 50, 90]);
+                }
+                localStorage.setItem('ttt_tally', JSON.stringify(tally));
+                renderTally();
+                render();
+            }
+
+            function renderTally() {
+                youV.textContent = tally.you;
+                drawV.textContent = tally.draw;
+                cpuV.textContent = tally.cpu;
+            }
+
+            function humanMove(idx) {
+                if (!state || state.over || state.turn !== state.player) return;
+                if (!TT.move(state, idx)) return;
+                ac();
+                sfx.you();
+                buzz(12);
+                render();
+                if (state.over) { finishGame(); return; }
+                cpuTurn();
+            }
+
+            function cpuTurn() {
+                setStatus('CPU is thinking…', true);
+                clearTimeout(cpuTimer);
+                cpuTimer = setTimeout(function () {
+                    var cell = TT.cpuMove(state);
+                    if (cell === null) return;
+                    TT.move(state, cell);
+                    sfx.cpu();
+                    render();
+                    if (state.over) { finishGame(); return; }
+                    setStatus('Your turn');
+                }, 420 + Math.random() * 260);
+            }
+
+            function newGame() {
+                clearTimeout(cpuTimer);
+                state = TT.createGame(side, difficulty);
+                render();
+                if (state.turn === state.cpu) {
+                    cpuTurn();
+                } else {
+                    setStatus('Your turn');
+                }
+            }
+
+            // ---------- segmented controls ----------
+            function wireSeg(id, attr, current, onPick) {
+                var seg = document.getElementById(id);
+                var btns = seg.querySelectorAll('button');
+                btns.forEach(function (b) {
+                    if (b.getAttribute(attr) === current) { btns.forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); }
+                    b.addEventListener('click', function () {
+                        btns.forEach(function (x) { x.classList.remove('on'); });
+                        b.classList.add('on');
+                        onPick(b.getAttribute(attr));
+                    });
+                });
+            }
+            wireSeg('diffSeg', 'data-d', difficulty, function (d) {
+                difficulty = d;
+                localStorage.setItem('ttt_diff', d);
+                newGame();
+            });
+            wireSeg('sideSeg', 'data-s', side, function (s) {
+                side = s;
+                localStorage.setItem('ttt_side', s);
+                newGame();
+            });
+
+            document.getElementById('newBtn').addEventListener('click', newGame);
+
+            // sound toggle
+            function renderSoundIcon() {
+                document.getElementById('soundOnIcon').style.display = soundOn ? 'block' : 'none';
+                document.getElementById('soundOffIcon').style.display = soundOn ? 'none' : 'block';
+            }
+            document.getElementById('soundBtn').addEventListener('click', function (e) {
+                e.stopPropagation();
+                soundOn = !soundOn;
+                localStorage.setItem('ttt_sound', soundOn ? 'on' : 'off');
+                renderSoundIcon();
+            });
+            renderSoundIcon();
+
+            renderTally();
+            newGame();
+
+            // PWA service worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('sw.js').catch(function (err) {
+                        console.warn('SW registration failed:', err);
+                    });
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
